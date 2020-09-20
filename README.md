@@ -1,6 +1,6 @@
 # Stylish OpenGL
 
-<img src="Screenshot.png" alt="Screenshot" style="zoom:75%;" />
+<p align="center"><img src="Screenshot.png" alt="Screenshot" style="zoom:75%;" /></p>
 
 ## What's this?
 
