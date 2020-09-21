@@ -525,7 +525,7 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT uMsg, WPARAM wPar, LPARAM lPar)
 		return 0;
 	}
 
-	if (uMsg == WM_SETFOCUS) {
+	if (uMsg == WM_SETFOCUS || uMsg == WM_MOVE) {
 		InvalidateRect(hWnd, NULL, FALSE);
 		UpdateWindow(hWnd);
 		return 0;
