@@ -303,6 +303,10 @@ void DrawCaptionButton(HWND hWnd, int order, int buttonId, int state)
 
 void Repaint(HWND hWnd)
 {
+
+	PAINTSTRUCT ps;
+	HDC hdc = BeginPaint(hWnd, &ps);
+
 	POINT pt;
 	GetCursorPos(&pt);
 	ScreenToClient(hWnd, &pt);
@@ -365,7 +369,9 @@ void Repaint(HWND hWnd)
 		glRecti(wr.left, wr.bottom - 1, wr.right, wr.bottom);
 	}
 
-	SwapBuffers(GetDC(hWnd));
+	SwapBuffers(hdc);
+
+	EndPaint(hWnd, &ps);
 }
 
 LRESULT WINAPI WndProc(HWND hWnd, UINT uMsg, WPARAM wPar, LPARAM lPar)
