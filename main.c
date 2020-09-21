@@ -10,6 +10,7 @@
 
 #define OPT_ENABLE_BORDER
 #define OPT_ENABLE_BLUR
+//#define OPT_FORCE_REPAINT_ON_MOVE
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -526,7 +527,11 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT uMsg, WPARAM wPar, LPARAM lPar)
 		return 0;
 	}
 
+#ifdef OPT_FORCE_REPAINT_ON_MOVE
 	if (uMsg == WM_SETFOCUS || uMsg == WM_MOVE) {
+#else
+	if (uMsg == WM_SETFOCUS) {
+#endif
 		InvalidateRect(hWnd, NULL, FALSE);
 		UpdateWindow(hWnd);
 		return 0;
