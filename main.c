@@ -83,7 +83,6 @@ int g_hoveredId;
 int g_lastHoveredId;
 GLuint g_atlasTex;
 COLORREF g_accentColor;
-BOOL g_destroyed;
 
 BOOL IsWindowMaximized(HWND hWnd)
 {
@@ -508,8 +507,10 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT uMsg, WPARAM wPar, LPARAM lPar)
 			ShowWindow(hWnd, SW_MINIMIZE);
 	}
 
-	if (uMsg == WM_QUIT || uMsg == WM_DESTROY)
-		g_destroyed = TRUE;
+	if (uMsg == WM_QUIT || uMsg == WM_DESTROY) {
+		PostQuitMessage(0);
+		return 0;
+	}
 
 	return DefWindowProc(hWnd, uMsg, wPar, lPar);
 }
@@ -533,14 +534,15 @@ int WinMain(HINSTANCE hInst, HINSTANCE prevInst, LPSTR lpCmd, int cmdShow)
 
 	ShowWindow(hWnd, SW_SHOW);
 
-	while (!g_destroyed)
-	{
-		MSG msg;
-		if (PeekMessage(&msg, hWnd, 0, 0, TRUE))
-		{
-			TranslateMessage(&msg);
-			DispatchMessage(&msg);
-		}
+	MSG msg;
+	while (TRUE) {
+		BOOL ret = GetMessage(&msg, NULL, 0, 0);
+
+		if (ret == 0 || ret == -1)
+			break;
+
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
 	}
 
 	return 0;
