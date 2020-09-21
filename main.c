@@ -301,11 +301,15 @@ void DrawCaptionButton(HWND hWnd, int order, int buttonId, int state)
 	glDisable(GL_TEXTURE_2D);
 }
 
-void Repaint(HWND hWnd)
+void Repaint(HWND hWnd, BOOL useBeginPaint)
 {
-
+	HDC hdc;
 	PAINTSTRUCT ps;
-	HDC hdc = BeginPaint(hWnd, &ps);
+
+	if (useBeginPaint)
+		hdc = BeginPaint(hWnd, &ps);
+	else
+		hdc = GetDC(hWnd);
 
 	POINT pt;
 	GetCursorPos(&pt);
@@ -369,9 +373,13 @@ void Repaint(HWND hWnd)
 		glRecti(wr.left, wr.bottom - 1, wr.right, wr.bottom);
 	}
 
+	if (!useBeginPaint)
+		DwmFlush();
+
 	SwapBuffers(hdc);
 
-	EndPaint(hWnd, &ps);
+	if (useBeginPaint)
+		EndPaint(hWnd, &ps);
 }
 
 LRESULT WINAPI WndProc(HWND hWnd, UINT uMsg, WPARAM wPar, LPARAM lPar)
@@ -498,8 +506,7 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT uMsg, WPARAM wPar, LPARAM lPar)
 
 	if (uMsg == WM_PAINT)
 	{
-		Repaint(hWnd);
-
+		Repaint(hWnd, TRUE);
 		return 0;
 	}
 
@@ -547,15 +554,23 @@ int WinMain(HINSTANCE hInst, HINSTANCE prevInst, LPSTR lpCmd, int cmdShow)
 	ShowWindow(hWnd, SW_SHOW);
 
 	MSG msg;
-	while (TRUE) {
-		BOOL ret = GetMessage(&msg, NULL, 0, 0);
+	BOOL isRunning = TRUE;
 
-		if (ret == 0 || ret == -1)
-			break;
+	do {
+		while (PeekMessage(&msg, NULL, 0, 0, PM_NOREMOVE)) {
+			BOOL ret = GetMessage(&msg, NULL, 0, 0);
 
-		TranslateMessage(&msg);
-		DispatchMessage(&msg);
-	}
+			if (ret == 0 || ret == -1) {
+				isRunning = FALSE;
+				break;
+			}
+
+			TranslateMessage(&msg);
+			DispatchMessageW(&msg);
+		}
+
+		Repaint(hWnd, FALSE);
+	} while (isRunning);
 
 	return 0;
 }
