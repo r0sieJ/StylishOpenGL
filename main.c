@@ -8,8 +8,9 @@
 #include <vssym32.h>
 #include <Uxtheme.h>
 
-#define OPT_ENABLE_BORDER TRUE
-#define OPT_ENABLE_BLUR TRUE
+#define OPT_ENABLE_BORDER
+#define OPT_ENABLE_BLUR
+//#define OPT_FORCE_REPAINT_ON_MOVE
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -83,7 +84,6 @@ int g_hoveredId;
 int g_lastHoveredId;
 GLuint g_atlasTex;
 COLORREF g_accentColor;
-BOOL g_destroyed;
 
 BOOL IsWindowMaximized(HWND hWnd)
 {
@@ -192,12 +192,11 @@ void LoadTheme(HWND hWnd)
 	const pFnSetWindowCompositionAttribute SetWindowCompositionAttribute
 		= GetProcAddress(LoadLibrary(L"user32.dll"), "SetWindowCompositionAttribute");
 
-	if (OPT_ENABLE_BLUR)
-	{
-		ACCENTPOLICY_t policy = { 3, 2, 0xAA000000, 0 }; // ACCENT_ENABLE_BLURBEHIND=3...
-		WINCOMPATTRDATA_t data = { 19, &policy, sizeof(ACCENTPOLICY_t) }; // WCA_ACCENT_POLICY=19
-		SetWindowCompositionAttribute(hWnd, &data);
-	}
+#ifdef OPT_ENABLE_BLUR
+	ACCENTPOLICY_t policy = { 3, 2, 0xAA000000, 0 }; // ACCENT_ENABLE_BLURBEHIND=3...
+	WINCOMPATTRDATA_t compData = { 19, &policy, sizeof(ACCENTPOLICY_t) }; // WCA_ACCENT_POLICY=19
+	SetWindowCompositionAttribute(hWnd, &compData);
+#endif
 
 	CloseThemeData(theme);
 	FreeLibrary(themeLib);
@@ -302,8 +301,16 @@ void DrawCaptionButton(HWND hWnd, int order, int buttonId, int state)
 	glDisable(GL_TEXTURE_2D);
 }
 
-void Repaint(HWND hWnd)
+void Repaint(HWND hWnd, BOOL useBeginPaint)
 {
+	HDC hdc;
+	PAINTSTRUCT ps;
+
+	if (useBeginPaint)
+		hdc = BeginPaint(hWnd, &ps);
+	else
+		hdc = GetDC(hWnd);
+
 	POINT pt;
 	GetCursorPos(&pt);
 	ScreenToClient(hWnd, &pt);
@@ -358,15 +365,23 @@ void Repaint(HWND hWnd)
 
 	glColor4f(red / 255.f, green / 255.f, blue / 255.f, 1.f);
 
-	if (!IsWindowMaximized(hWnd) && OPT_ENABLE_BORDER)
+#ifdef OPT_ENABLE_BORDER
+	if (!IsWindowMaximized(hWnd))
 	{
 		glRecti(wr.left, wr.top, wr.left + 1, wr.bottom);
 		glRecti(wr.right - 1, wr.top, wr.right, wr.bottom);
 		glRecti(wr.left, wr.top, wr.right, wr.top + 1);
 		glRecti(wr.left, wr.bottom - 1, wr.right, wr.bottom);
 	}
+#endif
 
-	SwapBuffers(GetDC(hWnd));
+	if (!useBeginPaint)
+		DwmFlush();
+
+	SwapBuffers(hdc);
+
+	if (useBeginPaint)
+		EndPaint(hWnd, &ps);
 }
 
 LRESULT WINAPI WndProc(HWND hWnd, UINT uMsg, WPARAM wPar, LPARAM lPar)
@@ -493,8 +508,7 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT uMsg, WPARAM wPar, LPARAM lPar)
 
 	if (uMsg == WM_PAINT)
 	{
-		Repaint(hWnd);
-
+		Repaint(hWnd, TRUE);
 		return 0;
 	}
 
@@ -508,8 +522,20 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT uMsg, WPARAM wPar, LPARAM lPar)
 			ShowWindow(hWnd, SW_MINIMIZE);
 	}
 
-	if (uMsg == WM_QUIT || uMsg == WM_DESTROY)
-		g_destroyed = TRUE;
+	if (uMsg == WM_QUIT || uMsg == WM_DESTROY) {
+		PostQuitMessage(0);
+		return 0;
+	}
+
+#ifdef OPT_FORCE_REPAINT_ON_MOVE
+	if (uMsg == WM_SETFOCUS || uMsg == WM_MOVE) {
+#else
+	if (uMsg == WM_SETFOCUS) {
+#endif
+		InvalidateRect(hWnd, NULL, FALSE);
+		UpdateWindow(hWnd);
+		return 0;
+	}
 
 	return DefWindowProc(hWnd, uMsg, wPar, lPar);
 }
@@ -519,7 +545,7 @@ int WinMain(HINSTANCE hInst, HINSTANCE prevInst, LPSTR lpCmd, int cmdShow)
 	WNDCLASS wc = { 0 };
 	wc.style = CS_OWNDC | CS_HREDRAW | CS_VREDRAW;
 	wc.lpfnWndProc = WndProc;
-	wc.hInstance = GetModuleHandle(NULL);
+	wc.hInstance = hInst;
 	wc.hCursor = LoadCursor(NULL, IDC_ARROW);
 	wc.lpszClassName = L"MyClass";
 	wc.hbrBackground = GetStockObject(BLACK_BRUSH);
@@ -533,15 +559,24 @@ int WinMain(HINSTANCE hInst, HINSTANCE prevInst, LPSTR lpCmd, int cmdShow)
 
 	ShowWindow(hWnd, SW_SHOW);
 
-	while (!g_destroyed)
-	{
-		MSG msg;
-		if (PeekMessage(&msg, hWnd, 0, 0, TRUE))
-		{
+	MSG msg;
+	BOOL isRunning = TRUE;
+
+	do {
+		while (PeekMessage(&msg, NULL, 0, 0, PM_NOREMOVE)) {
+			BOOL ret = GetMessage(&msg, NULL, 0, 0);
+
+			if (ret == 0 || ret == -1) {
+				isRunning = FALSE;
+				break;
+			}
+
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
 		}
-	}
+
+		Repaint(hWnd, FALSE);
+	} while (isRunning);
 
 	return 0;
 }
