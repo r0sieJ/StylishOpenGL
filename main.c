@@ -8,8 +8,8 @@
 #include <vssym32.h>
 #include <Uxtheme.h>
 
-#define OPT_ENABLE_BORDER TRUE
-#define OPT_ENABLE_BLUR TRUE
+#define OPT_ENABLE_BORDER
+#define OPT_ENABLE_BLUR
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -191,12 +191,11 @@ void LoadTheme(HWND hWnd)
 	const pFnSetWindowCompositionAttribute SetWindowCompositionAttribute
 		= GetProcAddress(LoadLibrary(L"user32.dll"), "SetWindowCompositionAttribute");
 
-	if (OPT_ENABLE_BLUR)
-	{
-		ACCENTPOLICY_t policy = { 3, 2, 0xAA000000, 0 }; // ACCENT_ENABLE_BLURBEHIND=3...
-		WINCOMPATTRDATA_t data = { 19, &policy, sizeof(ACCENTPOLICY_t) }; // WCA_ACCENT_POLICY=19
-		SetWindowCompositionAttribute(hWnd, &data);
-	}
+#ifdef OPT_ENABLE_BLUR
+	ACCENTPOLICY_t policy = { 3, 2, 0xAA000000, 0 }; // ACCENT_ENABLE_BLURBEHIND=3...
+	WINCOMPATTRDATA_t compData = { 19, &policy, sizeof(ACCENTPOLICY_t) }; // WCA_ACCENT_POLICY=19
+	SetWindowCompositionAttribute(hWnd, &compData);
+#endif
 
 	CloseThemeData(theme);
 	FreeLibrary(themeLib);
@@ -365,13 +364,15 @@ void Repaint(HWND hWnd, BOOL useBeginPaint)
 
 	glColor4f(red / 255.f, green / 255.f, blue / 255.f, 1.f);
 
-	if (!IsWindowMaximized(hWnd) && OPT_ENABLE_BORDER)
+#ifdef OPT_ENABLE_BORDER
+	if (!IsWindowMaximized(hWnd))
 	{
 		glRecti(wr.left, wr.top, wr.left + 1, wr.bottom);
 		glRecti(wr.right - 1, wr.top, wr.right, wr.bottom);
 		glRecti(wr.left, wr.top, wr.right, wr.top + 1);
 		glRecti(wr.left, wr.bottom - 1, wr.right, wr.bottom);
 	}
+#endif
 
 	if (!useBeginPaint)
 		DwmFlush();
@@ -539,7 +540,7 @@ int WinMain(HINSTANCE hInst, HINSTANCE prevInst, LPSTR lpCmd, int cmdShow)
 	WNDCLASS wc = { 0 };
 	wc.style = CS_OWNDC | CS_HREDRAW | CS_VREDRAW;
 	wc.lpfnWndProc = WndProc;
-	wc.hInstance = GetModuleHandle(NULL);
+	wc.hInstance = hInst;
 	wc.hCursor = LoadCursor(NULL, IDC_ARROW);
 	wc.lpszClassName = L"MyClass";
 	wc.hbrBackground = GetStockObject(BLACK_BRUSH);
@@ -566,7 +567,7 @@ int WinMain(HINSTANCE hInst, HINSTANCE prevInst, LPSTR lpCmd, int cmdShow)
 			}
 
 			TranslateMessage(&msg);
-			DispatchMessageW(&msg);
+			DispatchMessage(&msg);
 		}
 
 		Repaint(hWnd, FALSE);
