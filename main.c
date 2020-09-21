@@ -512,6 +512,12 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT uMsg, WPARAM wPar, LPARAM lPar)
 		return 0;
 	}
 
+	if (uMsg == WM_SETFOCUS) {
+		InvalidateRect(hWnd, NULL, FALSE);
+		UpdateWindow(hWnd);
+		return 0;
+	}
+
 	return DefWindowProc(hWnd, uMsg, wPar, lPar);
 }
 
